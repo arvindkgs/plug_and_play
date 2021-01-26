@@ -19,7 +19,9 @@ class CommandWatch():
     countdown = 0
     end_pattern = None
     start_pattern = None
+    env = None
     cmd = None
+    matched_lines = []
 
     class Enqueue(Thread):
         out = None
@@ -36,7 +38,7 @@ class CommandWatch():
                 self.queue.put(line)
             self.out.stdout.close()
 
-    def __init__(self, cmd, countdown, end_pattern, start_pattern=None):
+    def __init__(self, cmd, countdown, end_pattern, start_pattern=None, env=None):
         """
         @param cmd: Command to run
         @param countdown: Check end_pattern is matched as many times from cmd output
@@ -48,9 +50,10 @@ class CommandWatch():
         self.end_pattern = re.compile(end_pattern)
         if start_pattern:
             self.start_pattern = re.compile(start_pattern)
+        self.env = env
 
     def submit(self, timer=0):
-        self.p = Popen([self.cmd], stdout=PIPE, bufsize=1,
+        self.p = Popen([self.cmd], stdout=PIPE, bufsize=1, env=self.env,
                        universal_newlines=True, shell=True, executable='/bin/bash', preexec_fn=os.setsid)
         self.readThread = CommandWatch.Enqueue(self.p.stdout, self.q)
         executor = ThreadPoolExecutor(1)
@@ -89,6 +92,7 @@ class CommandWatch():
                         start_time = time.time()
                         started = True
                 if self.end_pattern and self.end_pattern.match(line):
+                    self.matched_lines.append(line)
                     count += 1
         end_time = time.time()
         return end_time - start_time
